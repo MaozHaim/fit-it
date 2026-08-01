@@ -56,6 +56,8 @@ In a second terminal:
 cd frontend && npm install && npm start
 ```
 
+npm install installs all dependencies defined in package.json. It also automatically creates the package-lock.json file and the node_modules directory.
+
 Then open `http://localhost:3000`.
 
 > The frontend calls the API with relative paths (`/api/...`), so it needs CRA's `proxy` field pointing at `http://127.0.0.1:8001`. Note that `frontend/package.json` is absent from this checkout - restore it (with `proxy`, `react-scripts`, `react-router-dom`, `axios`, `react-icons`) before running `npm install`.
