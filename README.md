@@ -2,12 +2,12 @@
 
 A menswear e-commerce site with two AI-driven discovery features: **natural-language semantic search** and **outfit bundling** - describe an occasion ("smart casual for a tech interview") and get back complete, coordinated outfits assembled from the catalog.
 
-- **Backend** — Django + Django REST Framework, PostgreSQL (+ `pgvector`). Runs on `http://127.0.0.1:8001`.
-- **Frontend** — React (Create React App), React Router, axios. Runs on `http://localhost:3000`.
+- **Backend** - Django + Django REST Framework, PostgreSQL (+ `pgvector`). Runs on `http://127.0.0.1:8001`.
+- **Frontend** - React (Create React App), React Router, axios. Runs on `http://localhost:3000`.
 
 ```text
 fit-it/
-├── .env                      # provided separately — not in the repo
+├── .env                      # provided separately - not in the repo
 ├── backend/
 │   ├── fitit/                # settings, URLs, JWT auth, pagination
 │   ├── store/                # products, orders, semantic search, bundling
@@ -42,7 +42,7 @@ It supplies `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, the `DB_*` connection settin
 cd backend && python -m venv .venv
 ```
 
-Activate it — `.venv\Scripts\activate` on Windows, `source .venv/bin/activate` on macOS/Linux — then:
+Activate it - `.venv\Scripts\activate` on Windows, `source .venv/bin/activate` on macOS/Linux - then:
 
 ```bash
 pip install -r requirements.txt && python manage.py runserver 8001
@@ -58,7 +58,7 @@ cd frontend && npm install && npm start
 
 Then open `http://localhost:3000`.
 
-> The frontend calls the API with relative paths (`/api/...`), so it needs CRA's `proxy` field pointing at `http://127.0.0.1:8001`. Note that `frontend/package.json` is absent from this checkout — restore it (with `proxy`, `react-scripts`, `react-router-dom`, `axios`, `react-icons`) before running `npm install`.
+> The frontend calls the API with relative paths (`/api/...`), so it needs CRA's `proxy` field pointing at `http://127.0.0.1:8001`. Note that `frontend/package.json` is absent from this checkout - restore it (with `proxy`, `react-scripts`, `react-router-dom`, `axios`, `react-icons`) before running `npm install`.
 
 ### 4. Enable outfit bundling (optional)
 
@@ -79,7 +79,7 @@ OUTFIT_COMPATIBILITY_CHECKPOINT=/abs/path/to/backend/store/outfit_transformer/ch
 OUTFIT_COMPLEMENTARY_CHECKPOINT=/abs/path/to/backend/store/outfit_transformer/checkpoints/complementary_best.pt
 ```
 
-`ml_manager.py` loads them into memory on the first request that needs them. Without the checkpoints the endpoint still responds, but with untrained task heads — the results are meaningless.
+`ml_manager.py` loads them into memory on the first request that needs them. Without the checkpoints the endpoint still responds, but with untrained task heads - the results are meaningless.
 
 ---
 
@@ -91,7 +91,7 @@ OUTFIT_COMPLEMENTARY_CHECKPOINT=/abs/path/to/backend/store/outfit_transformer/ch
 | `GET /api/store/products/semantic_search/` | `?q=` plus optional `main_category=`, `colors=` (comma-separated, excluded) |
 | `GET /api/store/bundling/` | `?q=`, `main_category=`, `num_bundles=` (1–20), `colors=` |
 | `GET/POST /api/store/orders/` | Scoped to the authenticated user when a token is present |
-| `POST /api/auth/register/`, `POST /api/auth/login/`, `GET /api/auth/profile/` | JWT — `login` returns access + refresh |
+| `POST /api/auth/register/`, `POST /api/auth/login/`, `GET /api/auth/profile/` | JWT - `login` returns access + refresh |
 
 ---
 
@@ -101,24 +101,24 @@ OUTFIT_COMPLEMENTARY_CHECKPOINT=/abs/path/to/backend/store/outfit_transformer/ch
 
 Every product carries two kinds of precomputed vectors, in separate tables:
 
-- **`ProductEmbeddingText`** — several rows per product: one BGE (`BAAI/bge-small-en-v1.5`, 384-d) vector for the description plus one per generated "vibe". Drives semantic search.
-- **`ProductEmbeddingImage`** — exactly one row per product: the 1024-d Fashion-CLIP item vector (512-d image projection ‖ 512-d text projection). Drives bundling.
+- **`ProductEmbeddingText`** - several rows per product: one BGE (`BAAI/bge-small-en-v1.5`, 384-d) vector for the description plus one per generated "vibe". Drives semantic search.
+- **`ProductEmbeddingImage`** - exactly one row per product: the 1024-d Fashion-CLIP item vector (512-d image projection ‖ 512-d text projection). Drives bundling.
 
 Both denormalize `category` and `color` from `Product` so vector queries hard-filter on an indexed column in the embedding table itself, with no join back to `Product`.
 
-The CLIP vector is precomputed at import time rather than per request because the image download plus Fashion-CLIP forward pass dominates bundling cost — and the CLIP backbone is frozen, so the vector doesn't depend on the trained checkpoints.
+The CLIP vector is precomputed at import time rather than per request because the image download plus Fashion-CLIP forward pass dominates bundling cost - and the CLIP backbone is frozen, so the vector doesn't depend on the trained checkpoints.
 
 ### Semantic search
 
-Filters are pushed down to the database *before* the vector scan (category, active, excluded colors), which prevents vector starvation — otherwise the nearest neighbours could all be filtered away afterwards. It over-fetches `limit * 4` rows and de-duplicates to one row per product in Python, since a product has several vibe vectors and any of them can match. The winning row's text and cosine distance ride back on the product as `matched_vibe` / `match_distance`.
+Filters are pushed down to the database *before* the vector scan (category, active, excluded colors), which prevents vector starvation - otherwise the nearest neighbours could all be filtered away afterwards. It over-fetches `limit * 4` rows and de-duplicates to one row per product in Python, since a product has several vibe vectors and any of them can match. The winning row's text and cosine distance ride back on the product as `matched_vibe` / `match_distance`.
 
-### Outfit bundling — retrieve, then rerank
+### Outfit bundling - retrieve, then rerank
 
 `store/bundling/bundle_service.py` builds whole outfits (one item per category in `BUNDLE_CATEGORIES`) for a free-text query:
 
-1. **Retrieve.** Per category, pull the top-M (150) query-relevant products via semantic search. These pools are the *only* items a bundle may draw from — that's what keeps every item on-query.
+1. **Retrieve.** Per category, pull the top-M (150) query-relevant products via semantic search. These pools are the *only* items a bundle may draw from - that's what keeps every item on-query.
 2. **Project.** Load the pooled products' stored 1024-d CLIP vectors and project them into the Outfit Transformer's 128-d CIR space. Only the pools are projected, not the catalog.
-3. **Fill.** The top seeds of the `main_category` pool start the bundles. For each seed, predict the next complementary item's embedding, then pick from that category's pool by a soft blend of query relevance and compatibility — both min-max normalized within the pool so the weights are comparable. Chosen items leave the pool so bundles don't repeat items.
+3. **Fill.** The top seeds of the `main_category` pool start the bundles. For each seed, predict the next complementary item's embedding, then pick from that category's pool by a soft blend of query relevance and compatibility - both min-max normalized within the pool so the weights are comparable. Chosen items leave the pool so bundles don't repeat items.
 4. **Rank.** Score the finished outfit with the compatibility model, then rank by `query_weight * min_item_relevance + compatibility_weight * compatibility`. Ranking on the **minimum** per-item relevance means a bundle only scores well when its *weakest* item is still on-query.
 
 Torch is imported lazily (in the view and in `ml_manager`), so Django startup doesn't pay for it unless bundling is actually hit.
@@ -129,13 +129,13 @@ Every knob lives in `store/consts.py`:
 
 | Constant | Default | Effect |
 | --- | --- | --- |
-| `TOP_M_PER_CATEGORY` | 150 | The main relevance/coherence trade-off. Smaller is more on-query but risks *starvation* — no compatible item in the pool, so outfits clash. Larger weakens the relevance guarantee at the tail. |
+| `TOP_M_PER_CATEGORY` | 150 | The main relevance/coherence trade-off. Smaller is more on-query but risks *starvation* - no compatible item in the pool, so outfits clash. Larger weakens the relevance guarantee at the tail. |
 | `SELECTION_RELEVANCE_WEIGHT` / `SELECTION_COMPATIBILITY_WEIGHT` | 0.6 / 0.4 | How each item is picked within its pool. Relevance-heavy on purpose. |
 | `DEFAULT_QUERY_WEIGHT` / `DEFAULT_COMPATIBILITY_WEIGHT` | 0.6 / 0.4 | Final bundle ranking. |
 | `BUNDLE_CATEGORIES` | shirts, pants, footwear | Outerwear's model key is `coats_jackets`. |
 | `SEMANTIC_SEARCH_LIMIT`, `NUM_BUNDLES`, `CIR_BATCH_SIZE` | 12, 5, 64 | Result counts and CIR projection batch size. |
 
-An empty category pool just leaves that slot out — the bundle comes back with fewer items.
+An empty category pool just leaves that slot out - the bundle comes back with fewer items.
 
 ### Authentication
 
@@ -151,7 +151,7 @@ An empty category pool just leaves that slot out — the bundle comes back with 
 
 ## Data pipeline
 
-The catalog is derived from the `Qdrant/hm_ecommerce_products` Hugging Face dataset. The three stages under `backend/data_preprocessing/` are run manually, in order — **not** part of local setup: the shared remote database is already seeded, and re-running the import writes to it for everyone.
+The catalog is derived from the `Qdrant/hm_ecommerce_products` Hugging Face dataset. The three stages under `backend/data_preprocessing/` are run manually, in order - **not** part of local setup: the shared remote database is already seeded, and re-running the import writes to it for everyone.
 
 ```bash
 python data_cleaning_and_filtering.py --out-dir ./processed
@@ -163,13 +163,13 @@ Filters to Menswear, collapses many `product_type_name` values into the four mai
 python data_enrichment.py --input ./processed/processed_menswear.csv --output ./processed/enriched_menswear.csv --start 0 --end 100 --batch-size 10
 ```
 
-Asks Gemini for three natural-language "vibes" per product — the use-case phrasing a shopper would actually type ("outfit for a summer beach wedding"). These become extra search vectors, and are what make search feel occasion-aware rather than keyword-based. Batched, with exponential backoff on 429/503 and incremental CSV appends so a crash doesn't lose completed work. Needs `GEMINI_API_KEY` in the environment.
+Asks Gemini for three natural-language "vibes" per product - the use-case phrasing a shopper would actually type ("outfit for a summer beach wedding"). These become extra search vectors, and are what make search feel occasion-aware rather than keyword-based. Batched, with exponential backoff on 429/503 and incremental CSV appends so a crash doesn't lose completed work. Needs `GEMINI_API_KEY` in the environment.
 
 ```bash
 python manage.py import_products /path/to/enriched_menswear.csv
 ```
 
-Seeds the database and builds both embedding types per product, inside one atomic transaction. Two kinds of row are skipped rather than imported: duplicates (same name + color + shade, checked before any network call) and any product whose image can't be downloaded — no image means no CLIP vector, which makes the product useless for bundling. Prices are random (the source dataset has none) and brand is hardcoded to H&M.
+Seeds the database and builds both embedding types per product, inside one atomic transaction. Two kinds of row are skipped rather than imported: duplicates (same name + color + shade, checked before any network call) and any product whose image can't be downloaded - no image means no CLIP vector, which makes the product useless for bundling. Prices are random (the source dataset has none) and brand is hardcoded to H&M.
 
 Verify an import with:
 
