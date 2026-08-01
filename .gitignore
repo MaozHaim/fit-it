@@ -1,0 +1,28 @@
+# =========================
+# Python & Environments
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+fit-it-venv/
+venv/
+env/
+.env
+
+# =========================
+# Data & Big Files
+# =========================
+# Ignore downloaded and processed datasets (GitHub blocks files > 100MB)
+*.csv
+*.parquet
+*.json
+*.h5
+*.pkl
+*.pth
+*.pt
+
+# Ignore specific data directories
+backend/data_preprocessing/processed/
